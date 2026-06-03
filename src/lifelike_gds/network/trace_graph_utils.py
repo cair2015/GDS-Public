@@ -264,20 +264,26 @@ def add_pagerank(
     reverse: bool = False,
     contribution: bool = False,
     tol: float = 1e-7,
+    max_iter: int = 500,
 ) -> None:
     """
-    Calculate and add personalized PageRank to graph nodes.
-    
-    This is a modified PageRank that measures influence from specific source nodes.
+    Calculate and add source-seeded personalized PageRank to graph nodes.
+
+    The source node set is converted into a personalization / restart
+    distribution for ``nx.pagerank``. This helper does not switch between
+    different PageRank solvers; it always delegates to NetworkX's
+    ``nx.pagerank`` implementation.
     
     Args:
         graph: NetworkX DirectedGraph (can be MultiDiGraph)
         sources: Name of source node set in graph
         pagerank_prop: Property name to store PageRank values (default: "pagerank")
-        personalization: Optional dictionary of node weights for personalized PageRank
+        personalization: Optional node weights overriding the default
+            personalization / restart distribution
         reverse: If True, calculate PageRank on reversed graph
         contribution: If True, calculate edge contribution values for Sankey
         tol: Convergence tolerance for PageRank algorithm
+        max_iter: Maximum power-iteration steps passed to ``nx.pagerank``
     """
     compute_graph = graph.reverse() if reverse else graph
     
@@ -290,16 +296,20 @@ def add_pagerank(
         compute_graph,
         sources,
         personalization,
-        method="scipy" if graph.is_multigraph() else "iteration",
         tol=tol,
+        max_iter=max_iter,
     )
     
     pageranks = {row['node']: row['pagerank'] for _, row in df.iterrows()}
-    nstarts = {row['node']: row['nstart'] for _, row in df.iterrows()}
+    personalization_vector = {
+        row['node']: row['personalization'] for _, row in df.iterrows()
+    }
 
     nx.set_node_attributes(graph, pageranks, pagerank_prop)
-    filtered_nstart = {k: v for k, v in nstarts.items() if v > 0}
-    nx.set_node_attributes(graph, filtered_nstart, 'start_val')
+    filtered_personalization = {
+        k: v for k, v in personalization_vector.items() if v > 0
+    }
+    nx.set_node_attributes(graph, filtered_personalization, 'start_val')
     
     if contribution:
         add_influence_contribution(
@@ -317,54 +327,57 @@ def pagerank_influence(
     sources_name: str,
     personalization: dict[NodeId, float] | None = None,
     weight: str | None = None,
-    method: str = "iteration",
     tol: float = 1e-6,
+    max_iter: int = 500,
 ) -> pd.DataFrame:
     """
-    Calculate modified PageRank for measuring influence from sources.
+    Calculate source-seeded personalized PageRank for measuring influence.
     
     Args:
         D: NetworkX DirectedGraph
-        sources_name: Node set name for personalization sources
-        personalization: Optional personalization weights dict
+        sources_name: Node set name used to seed the personalization vector
+        personalization: Optional personalization / restart weights dict
         weight: Edge weight attribute name (default: None = unweighted)
-        method: Algorithm method ('iteration', 'numpy', 'scipy')
         tol: Convergence tolerance
+        max_iter: Maximum power-iteration steps passed to ``nx.pagerank``
         
     Returns:
-        DataFrame with node IDs and their pagerank and nstart values
+        DataFrame with node IDs and their PageRank and personalization values
     """
     sources = D.node_set(sources_name) & set(D.nodes)
-    nstart = {v: 0 for v in D}
+    personalization_vector = {v: 0 for v in D}
     
     for v in sources:
-        nstart[v] = 1
+        personalization_vector[v] = 1
     
     if personalization:
         for v, val in personalization.items():
-            if v not in nstart:
+            if v not in personalization_vector:
                 logger.warning(f"Personalization node {v} not in graph")
             else:
-                nstart[v] = val
+                personalization_vector[v] = val
     
     try:
         pageranks = nx.pagerank(
             D,
-            personalization=nstart,
+            personalization=personalization_vector,
             weight=weight,
-            max_iter=500 if method.startswith("iter") else 100,
+            max_iter=max_iter,
             tol=tol,
         )
     except TypeError:
         # Fallback for older NetworkX versions
         pageranks = nx.pagerank(
             D,
-            personalization=nstart,
+            personalization=personalization_vector,
             weight=weight,
         )
     
     df1 = pd.DataFrame(list(pageranks.items()), columns=['node', 'pagerank'])
-    df2 = pd.DataFrame(list(nstart.items()), columns=['node', 'nstart'])
+    df2 = pd.DataFrame(
+        list(personalization_vector.items()),
+        columns=['node', 'personalization']
+    )
     df = pd.merge(df1, df2, on='node', how='outer')
     return df
 
@@ -414,10 +427,13 @@ def set_intersection_pagerank(
     intersect_pagerank_name: str | None = None,
 ) -> None:
     """
-    Calculate intersection PageRank combining forward and reverse PageRank.
-    
-    Uses formula: p1*p2/(p1+p2-p1*p2) where p1 is source PageRank
-    and p2 is target reverse PageRank.
+    Calculate a bidirectional overlap score from forward and reverse ranks.
+
+    This function does not run another PageRank pass. It combines an existing
+    forward rank ``p1`` and reverse rank ``p2`` using the heuristic formula
+    ``p1 * p2 / (p1 + p2 - p1 * p2)``. This is the Hamacher product, a
+    standard fuzzy-intersection operator, so nodes score highly only when both
+    directional influence values are high.
     
     Args:
         graph: NetworkX DirectedGraph

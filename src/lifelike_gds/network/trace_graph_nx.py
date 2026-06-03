@@ -197,14 +197,6 @@ class TraceGraphNx:
         self.graph.set_node_set(name, node_set, name=name, description=desc)
         logger.info(f"Created node set '{name}' with {len(node_set)} nodes")
 
-    def set_node_set_from_arango_nodes(
-        self,
-        nodes: list[Any],
-        name: str,
-        desc: str,
-    ) -> None:
-        """Backward-compatible alias kept for older notebooks and examples."""
-        self.set_node_set_from_db_nodes(nodes, name, desc)
 
     def set_node_set_for_node(self, node: dict[str, Any]) -> str:
         """

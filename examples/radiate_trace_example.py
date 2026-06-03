@@ -39,7 +39,7 @@ def export_radiate_traces(
         reverse_nodes: List of nodes selected based on reverse pageranks.
     """
     tracegraph.graph = tracegraph.orig_graph.copy()
-    tracegraph.set_node_set_from_arango_nodes(
+    tracegraph.set_node_set_from_db_nodes(
         source_nodes, source_name, source_name
     )
 
@@ -59,7 +59,7 @@ def export_radiate_traces(
     # add forward traces
     if forward_nodes:
         nodeset_name = 'forward select'
-        tracegraph.set_node_set_from_arango_nodes(
+        tracegraph.set_node_set_from_db_nodes(
             forward_nodes, nodeset_name, nodeset_name
         )
             
@@ -82,7 +82,7 @@ def export_radiate_traces(
     # add reverse traces
     if reverse_nodes:
         nodeset_name = 'reverse select'
-        tracegraph.set_node_set_from_arango_nodes(
+        tracegraph.set_node_set_from_db_nodes(
             reverse_nodes, nodeset_name, nodeset_name
         )
 

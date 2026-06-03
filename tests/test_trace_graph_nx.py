@@ -135,8 +135,33 @@ def test_weight_helpers_and_clean_graph_keep_trace_and_nodeset_nodes():
     assert "group" in tracegraph.graph.graph["trace_networks"][0]["traces"][0]
 
 
+def test_clean_graph_can_drop_non_trace_nodes_even_if_in_node_sets():
+    tracegraph = build_trace_graph()
+    tracegraph.graph.set_node_set("keep", {4}, name="keep")
+    tracegraph.graph.graph["trace_networks"] = [
+        {
+            "sources": "s",
+            "targets": "t",
+            "query": "s",
+            "traces": [
+                {
+                    "source": 1,
+                    "target": 3,
+                    "node_paths": [[1, 2, 3]],
+                    "edges": {(1, 2), (2, 3)},
+                }
+            ],
+        }
+    ]
+
+    tracegraph.clean_graph(keep_node_sets=False)
+
+    assert set(tracegraph.graph.nodes) == {1, 2, 3}
+
+
 def test_sankey_and_cytoscape_exports_write_json_files(tmp_path):
     tracegraph = build_trace_graph()
+    tracegraph.set_datadir(str(tmp_path))
     tracegraph.graph.graph["trace_networks"] = [
         {
             "sources": "s",
@@ -148,8 +173,8 @@ def test_sankey_and_cytoscape_exports_write_json_files(tmp_path):
 
     sankey = tmp_path / "graph.json"
     cyto = tmp_path / "graph_cyto.json"
-    tracegraph.write_to_sankey_file(sankey)
-    tracegraph.write_to_cytoscape_file(cyto)
+    tracegraph.write_to_sankey_file("graph.json")
+    tracegraph.write_to_cytoscape_file("graph_cyto.json")
 
     sankey_data = json.loads(sankey.read_text())
     cyto_data = json.loads(cyto.read_text())

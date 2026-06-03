@@ -24,7 +24,7 @@ def _export_radiate_analysis(
     rows_export=1000,
 ):
     tracegraph.graph = tracegraph.orig_graph.copy()
-    tracegraph.set_node_set_from_arango_nodes(
+    tracegraph.set_node_set_from_db_nodes(
         source_nodes, source_name, source_decription
     )
     outfile_name = f"Radiate_analysis_for_{source_name}.xlsx"

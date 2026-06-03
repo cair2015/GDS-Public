@@ -98,7 +98,7 @@ def test_pagerank_helpers_add_expected_node_properties():
     graph = build_graph()
 
     df = pagerank_influence(graph, "sources")
-    assert set(df.columns) == {"node", "pagerank", "nstart"}
+    assert set(df.columns) == {"node", "pagerank", "personalization"}
     assert set(df["node"]) == set(graph.nodes)
 
     add_pagerank(graph, "sources", pagerank_prop="pr")

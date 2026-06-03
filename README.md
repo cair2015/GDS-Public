@@ -75,3 +75,7 @@ uv run pytest integration -m integration
 - Neo4j Documentation: https://neo4j.com/docs/
 - Reactome: https://reactome.org/
 - uv Documentation: https://docs.astral.sh/uv/
+
+## Additional Docs
+
+- Trace algorithm overview: [docs/trace_algorithms.md](docs/trace_algorithms.md)
